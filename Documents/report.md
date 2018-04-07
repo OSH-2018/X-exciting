@@ -247,6 +247,6 @@
 
 [3]:  云存储系统中动态负载均衡算法研究 田浪军，陈卫卫，陈卫东，李涛
 
-[4]: Load Balancing in Structured P2P Systems  Ananth,Rao,Karthik,Lakshminarayanan,Sonesh,Surana,Richard,Karp,Ion,Stoica 
+[4]: *Load Balancing in Structured P2P Systems*  Ananth Rao,Karthik Lakshminarayanan,Sonesh Surana,Richard Karp,Ion Stoica 
 
 [5]: 一种结构化P2P负载均衡策略的研究 肖斐,邓亚平 
