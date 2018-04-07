@@ -27,6 +27,13 @@
 <br>
 <br>
 <br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
 
 <h2 id="1"> 一、项目背景 </h2>
 
@@ -68,6 +75,8 @@
 <h3 id="14"> 4. FastDFS简介 </h3>
 
 - FastDFS是一款开源的、分布式文件系统(Distributed File System)，由淘宝开发平台部资深架构师余庆开发。FastDFS由纯 C 实现,支持 Linux、 FreeBSD 等 UNIX 类 GoogleFS, 提供了 C、 Java 和 PHP API 为互联网应用量身定做。作为一个分布式文件系统，它对文件进行管理，功能包括:文件存储、文件同步、文件访问(文件上传、文件下载)等，解决了大容量存储和负载均衡的问题，特别适合中小文件(建议范围:4KB < file_size <500MB)，对以文件为载体的在线服务，如相册网站、视频网站等等具有显著的效果。
+
+图一:FastDFS架构
 ![](https://github.com/OSH-2018/X-exciting/blob/master/Documents/FastDFS_2.png)
 
 - FastDFS的架构设计: 由client、storage server、tracker 三部分组成
@@ -83,6 +92,8 @@
         - 客户端,作为业务请求的发起方,通过专有接口,使用 TCP/IP 协议与跟踪器服务器或存储节点进行数据交互。FastDFS 向使用者提供基本文件访问接口,比如 upload、download、append、delete 等,以客户端库的方式提供给用户使用。
 - FastDFS的上传过程:
     - 当Tracker收到客户端上传文件的请求时,会为该文件分配一个可以存储文件的group,当选定了group后就要决定给客户端分配group中的哪一个storage server。当分配好storage server后,客户端向storage发送写文件请求,storage将会为文件分配一个数据存储目录。然后为文件分配一个fileid,最后根据以上的信息生成文件名存储文件。
+
+图二：FastDFS数据传输流程
 ![](https://github.com/OSH-2018/X-exciting/blob/master/Documents/FastDFS_1.png)
 - FastDFS的文件同步
     - 写文件时,客户端将文件写至group内一个storage server即认为写文件成功,storage server写完文件后,会由后台线程将文件同步至同group内其他的storage server。
@@ -186,6 +197,9 @@
     - Ceph分布数据的过程：首先计算数据x的Hash值并将结果和PG（分区）数目取余，以得到数据x对应的PG编号。然后，通过CRUSH算法将PG映射到一组OSD中。最后把数据x存放到PG对应的OSD中。这个过程中包含了两次映射，第一次是数据x到PG的映射。如果把PG当作存储节点，那么这和文章开头提到的普通Hash算法一样。不同的是，PG是抽象的存储节点，它不会随着物理节点的加入或则离开而增加或减少，因此数据到PG的映射是稳定的。
     - Ceph文件系统拥有优秀的性能、高可靠性和高可扩展性这三大特性。秀的性能是指数据能够在各个节点上进行均衡地分布；高可靠性表示在Ceph文件系统中没有单点故障，并且存储在系统中的数据能够保证尽可能的不丢失；高可扩展性即Ceph系统易于扩展，能够很容易实现从TB到PB级别的扩展。
 
+图三：简单的 Ceph 生态系统
+![](https://github.com/OSH-2018/X-exciting/blob/master/Documents/FastDFS_3.png)
+
 - glusterfs：
     - GlusterFS采用独特的无中心对称式架构，与其他有中心的分布式文件系统相比，它没有专用的元数据服务集群。在文件定位的问题上，GlusterFS使用DHT算法进行文件定位，集群中的任何服务器和客户端只需根据路径和文件名就可以对数据进行定位和读写访问。换句话说，GlusterFS不需要将元数据与数据进行分离，因为文件定位可独立并行化进行。
     - 数据访问流程：
@@ -194,6 +208,9 @@
         3. 对所选择的子卷进行数据访问。
     - 存在的问题：GlusterFS目前主要适用大文件存储场景，对于小文件尤其是海量小文件，存储效率和访问性能都表现不佳。
     - 优势：使用弹性哈希算法，从而获得了接近线性的高扩展性，同时也提高了系统性能和可靠性。
+
+图四：glusterfs客户端访问流程
+![](https://github.com/OSH-2018/X-exciting/blob/master/Documents/FastDFS_4.png)
 
 - FastDHT
     - FastDHT 是一个高性能的分布式哈希系统 (DHT) ,使用 Berkeley DB 做数据存储,使用libevent做网络IO处理,提供 Java 版的客户端接口包｡适合用来存储用户在线､会话等小数据量信息｡
