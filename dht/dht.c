@@ -213,6 +213,11 @@ struct peer {
 #define DHT_SEARCH_RETRANSMIT 10
 #endif
 
+/* The maximum number of hashes we're willing to store. */
+#ifndef DHT_MAX_OWN
+#define DHT_MAX_OWN 1024
+#endif
+
 struct storage {
     unsigned char id[20];
     int numpeers, maxpeers;
@@ -320,6 +325,7 @@ static struct bucket *buckets = NULL;
 static struct bucket *buckets6 = NULL;
 static struct storage *storage;
 static int numstorage;
+static int num_own_storage;    // the num of hashes we own
 
 static struct search *searches = NULL;
 static int numsearches;
@@ -1437,9 +1443,10 @@ find_storage(const unsigned char *id)
     return st;
 }
 
-static int
-storage_store(const unsigned char *id,
-              const struct sockaddr *sa, unsigned short port)
+int
+dht_storage_store(const unsigned char *id,
+              const struct sockaddr *sa, unsigned short port,
+              int own)
 {
     int i, len;
     struct storage *st;
@@ -1459,15 +1466,25 @@ storage_store(const unsigned char *id,
 
     st = find_storage(id);
 
+    if (own && (st != NULL)) {
+        debugf("why the peers exist?");
+        return -1;
+    }
+
     if(st == NULL) {
-        if(numstorage >= DHT_MAX_HASHES)
+        if (own && num_own_storage >= DHT_MAX_OWN)
+            return -1;
+        else if(!own && numstorage >= DHT_MAX_HASHES)
             return -1;
         st = calloc(1, sizeof(struct storage));
         if(st == NULL) return -1;
         memcpy(st->id, id, 20);
         st->next = storage;
         storage = st;
-        numstorage++;
+        if (own)
+            num_own_storage++;
+        else
+            numstorage++;
     }
 
     for(i = 0; i < st->numpeers; i++) {
@@ -1478,6 +1495,10 @@ storage_store(const unsigned char *id,
 
     if(i < st->numpeers) {
         /* Already there, only need to refresh */
+        if (own) {
+            debugf("restore the hash we own ?");
+            return 0;
+        }
         st->peers[i].time = now.tv_sec;
         return 0;
     } else {
@@ -1486,8 +1507,13 @@ storage_store(const unsigned char *id,
             /* Need to expand the array. */
             struct peer *new_peers;
             int n;
-            if(st->maxpeers >= DHT_MAX_PEERS)
+            if(st->maxpeers >= DHT_MAX_PEERS) {
+                if (own) {
+                    debugf("impossible! some peers announce hashes we just own???");
+                    return -1;
+                }
                 return 0;
+            }
             n = st->maxpeers == 0 ? 2 : 2 * st->maxpeers;
             n = MIN(n, DHT_MAX_PEERS);
             new_peers = realloc(st->peers, n * sizeof(struct peer));
@@ -1497,7 +1523,10 @@ storage_store(const unsigned char *id,
             st->maxpeers = n;
         }
         p = &st->peers[st->numpeers++];
-        p->time = now.tv_sec;
+        if (own)
+            p->time = 0;
+        else
+            p->time = now.tv_sec;
         p->len = len;
         memcpy(p->ip, ip, len);
         p->port = port;
@@ -1512,6 +1541,10 @@ expire_storage(void)
     while(st) {
         int i = 0;
         while(i < st->numpeers) {
+            /* time == 0 means this peer is owned by us*/
+            if (st->peers[i].time == 0) {
+                continue;
+            }
             if(st->peers[i].time < now.tv_sec - 32 * 60) {
                 if(i != st->numpeers - 1)
                     st->peers[i] = st->peers[st->numpeers - 1];
@@ -1640,65 +1673,35 @@ dht_nodes(int af, int *good_return, int *dubious_return, int *cached_return,
     return good + dubious;
 }
 
+// modified by hyt
 static void
 dump_bucket(FILE *f, struct bucket *b)
 {
     struct node *n = b->nodes;
-    fprintf(f, "Bucket ");
-    print_hex(f, b->first, 20);
-    fprintf(f, " count %d/%d age %d%s%s:\n",
-            b->count, b->max_count, (int)(now.tv_sec - b->time),
-            in_bucket(myid, b) ? " (mine)" : "",
-            b->cached.ss_family ? " (cached)" : "");
     while(n) {
-        char buf[512];
+        char buf[INET6_ADDRSTRLEN];
         unsigned short port;
-        fprintf(f, "    Node ");
-        print_hex(f, n->id, 20);
         if(n->ss.ss_family == AF_INET) {
             struct sockaddr_in *sin = (struct sockaddr_in*)&n->ss;
-            inet_ntop(AF_INET, &sin->sin_addr, buf, 512);
+            inet_ntop(AF_INET, &sin->sin_addr, buf, INET_ADDRSTRLEN);
             port = ntohs(sin->sin_port);
         } else if(n->ss.ss_family == AF_INET6) {
             struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&n->ss;
-            inet_ntop(AF_INET6, &sin6->sin6_addr, buf, 512);
+            inet_ntop(AF_INET6, &sin6->sin6_addr, buf, INET6_ADDRSTRLEN);
             port = ntohs(sin6->sin6_port);
         } else {
-            snprintf(buf, 512, "unknown(%d)", n->ss.ss_family);
-            port = 0;
+            continue;
         }
-
-        if(n->ss.ss_family == AF_INET6)
-            fprintf(f, " [%s]:%d ", buf, port);
-        else
-            fprintf(f, " %s:%d ", buf, port);
-        if(n->time != n->reply_time)
-            fprintf(f, "age %ld, %ld",
-                    (long)(now.tv_sec - n->time),
-                    (long)(now.tv_sec - n->reply_time));
-        else
-            fprintf(f, "age %ld", (long)(now.tv_sec - n->time));
-        if(n->pinged)
-            fprintf(f, " (%d)", n->pinged);
-        if(node_good(n))
-            fprintf(f, " (good)");
-        fprintf(f, "\n");
+        fprintf(f, "addr:%s port:%d\n", buf, port);
         n = n->next;
     }
-
 }
 
+// modified by josen
 void
 dht_dump_tables(FILE *f)
 {
-    int i;
     struct bucket *b;
-    struct storage *st = storage;
-    struct search *sr = searches;
-
-    fprintf(f, "My id ");
-    print_hex(f, myid, 20);
-    fprintf(f, "\n");
 
     b = buckets;
     while(b) {
@@ -1706,59 +1709,6 @@ dht_dump_tables(FILE *f)
         b = b->next;
     }
 
-    fprintf(f, "\n");
-
-    b = buckets6;
-    while(b) {
-        dump_bucket(f, b);
-        b = b->next;
-    }
-
-    while(sr) {
-        fprintf(f, "\nSearch%s id ", sr->af == AF_INET6 ? " (IPv6)" : "");
-        print_hex(f, sr->id, 20);
-        fprintf(f, " age %d%s\n", (int)(now.tv_sec - sr->step_time),
-               sr->done ? " (done)" : "");
-        for(i = 0; i < sr->numnodes; i++) {
-            struct search_node *n = &sr->nodes[i];
-            fprintf(f, "Node %d id ", i);
-            print_hex(f, n->id, 20);
-            fprintf(f, " bits %d age ", common_bits(sr->id, n->id));
-            if(n->request_time)
-                fprintf(f, "%d, ", (int)(now.tv_sec - n->request_time));
-            fprintf(f, "%d", (int)(now.tv_sec - n->reply_time));
-            if(n->pinged)
-                fprintf(f, " (%d)", n->pinged);
-            fprintf(f, "%s%s.\n",
-                    find_node(n->id, sr->af) ? " (known)" : "",
-                    n->replied ? " (replied)" : "");
-        }
-        sr = sr->next;
-    }
-
-    while(st) {
-        fprintf(f, "\nStorage ");
-        print_hex(f, st->id, 20);
-        fprintf(f, " %d/%d nodes:", st->numpeers, st->maxpeers);
-        for(i = 0; i < st->numpeers; i++) {
-            char buf[100];
-            if(st->peers[i].len == 4) {
-                inet_ntop(AF_INET, st->peers[i].ip, buf, 100);
-            } else if(st->peers[i].len == 16) {
-                buf[0] = '[';
-                inet_ntop(AF_INET6, st->peers[i].ip, buf + 1, 98);
-                strcat(buf, "]");
-            } else {
-                strcpy(buf, "???");
-            }
-            fprintf(f, " %s:%u (%ld)",
-                    buf, st->peers[i].port,
-                    (long)(now.tv_sec - st->peers[i].time));
-        }
-        st = st->next;
-    }
-
-    fprintf(f, "\n\n");
     fflush(f);
 }
 
@@ -2268,8 +2218,8 @@ dht_periodic(const void *buf, size_t buflen,
                            203, "Announce_peer with forbidden port number");
                 break;
             }
-            storage_store(m.info_hash, from, m.port);
-            /* Note that if storage_store failed, we lie to the requestor.
+            dht_storage_store(m.info_hash, from, m.port, 0);
+            /* Note that if dht_storage_store failed, we lie to the requestor.
                This is to prevent them from backtracking, and hence
                polluting the DHT. */
             debugf("Sending peer announced.\n");

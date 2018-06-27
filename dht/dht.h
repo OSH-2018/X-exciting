@@ -45,6 +45,9 @@ int dht_periodic(const void *buf, size_t buflen,
                  dht_callback_t *callback, void *closure);
 int dht_search(const unsigned char *id, int port, int af,
                dht_callback_t *callback, void *closure);
+int dht_storage_store(const unsigned char *id,
+              const struct sockaddr *sa, unsigned short port,
+              int own);
 int dht_nodes(int af,
               int *good_return, int *dubious_return, int *cached_return,
               int *incoming_return);
