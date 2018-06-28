@@ -3,9 +3,11 @@ extern "C" {
 #endif
 
 #include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
-#define SERVER_FIFO "/tmp/dht_fifo"
-#define CLIENT_FIFO_TEMPLATE "/tmp/dht_client_%d"
+#define SERVER_FIFO "dht_fifo"
+#define CLIENT_FIFO_TEMPLATE "dht_client_%d"
 #define MAX_CLIENT_FIFO_NAME 256
 struct server_request {
     pid_t id;
@@ -28,6 +30,11 @@ struct server_answer {
 #define DHT_DONE 1
 #define DHT_TOO_MUCH_REQUEST 2
 #define DHT_MEMORY_NOT_ENOUGH 3
+#define DHT_NODE 4
+
+/* port */
+#define TCP_PORT 8888
+#define UDP_PORT 7777
 
 #ifdef __cplusplus
 }

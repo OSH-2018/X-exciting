@@ -22,9 +22,6 @@
 #define MAX_BOOTSTRAP_NODES 20
 #define MAX_REQUEST 20
 
-#define TCP_PORT 8888
-#define UDP_PORT 7777
-
 #define KNOWN_NODE_FILE ".nodes"
 #define ID_FILE ".dht_id"
 
@@ -421,14 +418,61 @@ static void callback(void *closure,
          const unsigned char *hash,
          const void *data, size_t data_len)
 {
-    if(event == DHT_EVENT_SEARCH_DONE)
-        printf("Search done.\n");
-    else if(event == DHT_EVENT_SEARCH_DONE6)
-        printf("IPv6 search done.\n");
-    else if(event == DHT_EVENT_VALUES)
-        printf("Received %d values.\n", (int)(data_len / 6));
-    else if(event == DHT_EVENT_VALUES6)
-        printf("Received %d IPv6 values.\n", (int)(data_len / 18));
+    struct server_answer ans;
+    struct sockaddr_storage st;
+    struct sockaddr_in *sin;
+    struct sockaddr_in6 *sin6;
+
+    memset(&st, 0, sizeof(st));
+
+    if(event == DHT_EVENT_SEARCH_DONE) {
+        ans.type = DHT_DONE;
+        write(requests->clientfd, &ans, sizeof(struct server_answer));
+        close(requests->clientfd);
+        free(requests);
+        requests = NULL;
+    }
+    else if(event == DHT_EVENT_SEARCH_DONE6) {
+        ans.type = DHT_DONE;
+        write(requests->clientfd, &ans, sizeof(struct server_answer));
+        close(requests->clientfd);
+        free(requests);
+        requests = NULL;
+    }
+    else if(event == DHT_EVENT_VALUES) {
+        struct in_addr addr;
+        int16_t port;
+        ans.type = DHT_NODE;
+        ans.addr_len = sizeof(struct sockaddr_in);
+
+        sin = (struct sockaddr_in *)&st;
+        sin->sin_family = AF_INET;
+        for (int i = 0; i < data_len / 6; i++) {
+            memcpy(&addr, data + i * 6, 4);
+            memcpy(&port, data + i * 6 + 4, 2);
+            sin->sin_addr = addr;
+            sin->sin_port = port;
+            ans.addr = st;
+            write(requests->clientfd, &ans, sizeof(struct server_answer));
+        }
+    }
+    else if(event == DHT_EVENT_VALUES6) {
+        struct in6_addr addr;
+        int16_t port;
+        ans.type = DHT_NODE;
+        ans.addr_len = sizeof(struct sockaddr_in6);
+
+        sin6 = (struct sockaddr_in6 *)&st;
+        sin6->sin6_family = AF_INET6;
+        for (int i = 0; i < data_len / 18; i++) {
+            memcpy(&addr, data + i * 18, 16);
+            memcpy(&port, data + i * 18 + 16, 2);
+            sin6->sin6_addr = addr;
+            sin6->sin6_port = port;
+            ans.addr = st;
+            write(requests->clientfd, &ans, sizeof(struct server_answer));
+        }
+    }
     else
         printf("Unknown DHT event %d.\n", event);
 }
@@ -639,14 +683,16 @@ int main(int argc, char **argv)
         dht_debug = stdout;
 */
     #ifdef DEBUG
-    dht_debug = fopen("debug", "w");
-    #endif 
+    dht_debug = stdout;
+    //dht_debug = fopen("debug", "w");
     // 下面变成daemon
+    #else
     rc = becomeDaemon();
     if (rc == -1) {
         perror("becomeDaemon");
         exit(EXIT_FAILURE);
     }
+    #endif
 
     // 打开日志
     openlog(argv[0], LOG_CONS | LOG_PID, LOG_USER);
@@ -782,7 +828,7 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
 
-        rc = setsockopt(tcp_s6, IPPROTO_TCP, SO_REUSEADDR, &opt, sizeof(opt));
+        rc = setsockopt(tcp_s6, IPPROTO_IPV6, SO_REUSEADDR, (char *)&opt, sizeof(opt));
         if (rc < 0) {
             syslog(LOG_ERR, "setsockopt(tcp SO_REUSEADDR) : %s", strerror(errno));
             exit(EXIT_FAILURE);
@@ -792,7 +838,7 @@ int main(int argc, char **argv)
         sin6.sin6_family = AF_INET6;
         sin6.sin6_addr = in6addr_any;
         sin6.sin6_port = htons(tcp_port);
-        rc = bind(tcp_s, (struct sockaddr *)&sin6, sizeof(sin6));
+        rc = bind(tcp_s6, (struct sockaddr *)&sin6, sizeof(sin6));
         if (rc < 0) {
             syslog(LOG_ERR, "bind(tcp IPv6) : %s", strerror(errno));
             exit(EXIT_FAILURE);
