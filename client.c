@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <bsd/md5.h>
+#include <openssl/md5.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
@@ -13,9 +13,9 @@ void hash(void *hash_return, int hash_size,
 {
     static MD5_CTX ctx;
     uint8_t digest[16];
-    MD5Init(&ctx);
-    MD5Update(&ctx, v, len);
-    MD5Final(digest, &ctx);
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, v, len);
+    MD5_Final(digest, &ctx);
     if(hash_size > 16)
         memset((char*)hash_return + 16, 0, hash_size - 16);
     memcpy(hash_return, digest, hash_size > 16 ? 16 : hash_size);

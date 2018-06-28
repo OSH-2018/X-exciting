@@ -14,7 +14,7 @@
 #include <sys/signal.h>
 #include <syslog.h>
 #include <sys/stat.h>
-#include <bsd/md5.h>
+#include <openssl/md5.h>
 
 #include "dht_daemon.h"
 #include "dht/dht.h"
@@ -631,7 +631,7 @@ int main(int argc, char **argv)
             struct sockaddr_in6 addr6;
             uint16_t port;
             char buf[256];
-            char *match;
+            char *matcha, *matchp;
             
             memset(&addr, 0, sizeof(struct sockaddr_in));
             memset(&addr6, 0, sizeof(struct sockaddr_in6));
@@ -639,26 +639,24 @@ int main(int argc, char **argv)
             if (fgets(buf, 256, file) == NULL) {
                 break;
             }
-            match = strstr(buf, "addr:");
-            if (match == NULL) {
+            matcha = strstr(buf, "addr:");
+            matchp = strstr(buf, " port:");
+
+            if ((matcha == NULL) || (matchp == NULL)) {
                 break;
             }
+            *matchp = '\0';
             if (ipv4) {
-                rc = inet_pton(AF_INET, match + 5, &addr.sin_addr);
+                rc = inet_pton(AF_INET, matcha + 5, &addr.sin_addr);
             }
             else if (ipv6) {
-                rc = inet_pton(AF_INET6, match + 5, &addr6.sin6_addr);
+                rc = inet_pton(AF_INET6, matcha + 5, &addr6.sin6_addr);
             }
             else
                 break;
             if (rc <= 0)
                 break;
-
-            match = strstr(buf, "port:");
-            if (match == NULL) {
-                break;
-            }
-            rc = sscanf(match + 5, "%d", (int *)&port);
+            rc = sscanf(matchp + 6, "%d", (int *)&port);
             if (rc <= 0) {
                 break;
             }
@@ -913,14 +911,15 @@ int main(int argc, char **argv)
     }
 
     // open server fifo
-    rc = mkfifo(SERVER_FIFO, S_IRUSR | S_IWUSR | S_IWGRP);
-    if ((rc == -1) && (errno == EEXIST)) {
-        // some erro, the file has existed
-        syslog(LOG_ERR, "mkfifo : %s", strerror(errno));
-        syslog(LOG_INFO, "if you confirm the file %s is not owned by other application, remove it and restart this daemon", SERVER_FIFO);
-        exit(EXIT_FAILURE);
+    if (access(SERVER_FIFO, F_OK) != 0) {
+        rc = mkfifo(SERVER_FIFO, S_IRUSR | S_IWUSR | S_IWGRP);
+        if ((rc == -1) && (errno == EEXIST)) {
+            // some erro, the file has existed
+            syslog(LOG_ERR, "mkfifo : %s", strerror(errno));
+            //syslog(LOG_INFO, "if you confirm the file %s is not owned by other application, remove it and restart this daemon", SERVER_FIFO);
+            exit(EXIT_FAILURE);
+        }
     }
-
     fifo_fd = open(SERVER_FIFO, O_RDONLY | O_NONBLOCK);
     if (fifo_fd == -1) {
         syslog(LOG_ERR, "%s", strerror(errno));
@@ -1238,11 +1237,11 @@ dht_hash(void *hash_return, int hash_size,
 {
     static MD5_CTX ctx;
     uint8_t digest[16];
-    MD5Init(&ctx);
-    MD5Update(&ctx, v1, len1);
-    MD5Update(&ctx, v2, len2);
-    MD5Update(&ctx, v3, len3);
-    MD5Final(digest, &ctx);
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, v1, len1);
+    MD5_Update(&ctx, v2, len2);
+    MD5_Update(&ctx, v3, len3);
+    MD5_Final(digest, &ctx);
     if(hash_size > 16)
         memset((char*)hash_return + 16, 0, hash_size - 16);
     memcpy(hash_return, digest, hash_size > 16 ? 16 : hash_size);
