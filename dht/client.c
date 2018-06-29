@@ -164,6 +164,12 @@ int main(int argc, char **argv)
         sprintf(fifo_name, CLIENT_FIFO_TEMPLATE, req.id);
         mkfifo(fifo_name, S_IRUSR | S_IWUSR | S_IWGRP);
         clientfd = open(fifo_name, O_RDONLY);
+             
+        if(clientfd < 0){
+                 perror("");
+                 exit(EXIT_FAILURE);
+        }
+                 
         write(serverfd, &req, sizeof(struct server_request));
         int i = 0;
         while (1) {
