@@ -505,7 +505,7 @@ int main(int argc, char **argv)
     time_t tosleep = 0;
     char id_file[] = ID_FILE;
     int opt;
-    int quiet = 0, ipv4 = 1, ipv6 = 1;
+    int quiet = 0, ipv4 = 1, ipv6 = 0;
     struct sockaddr_in sin;
     struct sockaddr_in6 sin6;
     struct sockaddr_storage from;
@@ -1217,7 +1217,11 @@ int
 dht_sendto(int sockfd, const void *buf, int len, int flags,
            const struct sockaddr *to, int tolen)
 {
-    return sendto(sockfd, buf, len, flags, to, tolen);
+    int rc = sendto(sockfd, buf, len, flags, to, tolen);
+    if (rc <= 0) {
+        perror("send");
+    }
+    return rc;
 }
 
 int

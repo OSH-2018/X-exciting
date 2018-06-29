@@ -29,7 +29,7 @@ void handle(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
     sprintf(name + strlen(filename), "%d", i);
     int fd = open(name, O_WRONLY | O_CREAT);
     if (fd < 0) {
-        perror("我不信\n");
+        perror("");
         exit(EXIT_FAILURE);
     }
     if (addr_len == sizeof(struct sockaddr_in)) {
@@ -37,11 +37,11 @@ void handle(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         buf[0] = 'd';
         sprintf(buf + 1, "%s", info_hash);
         if (ss < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         send(ss, buf, 21, 0);
@@ -59,11 +59,11 @@ void handle(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         buf[0] = 'd';
         sprintf(buf + 1, "%s", info_hash);
         if (ss < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         send(ss, buf, 21, 0);
@@ -85,7 +85,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
     struct stat st;
     rc = fstat(fd, &st);
     if (rc < 0) {
-        perror("我不信\n");
+        perror("");
         exit(EXIT_FAILURE);
     }
     if (addr_len == sizeof(struct sockaddr_in)) {
@@ -94,11 +94,11 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         memcpy(buf + 1, info_hash, 20);
         sprintf(buf + 21, "%8d", (int)st.st_size);
         if (ss < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         send(ss, buf, 1 + 20 + 8, 0);
@@ -111,7 +111,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
             }
             rc = send(ss, buf, 2048, 0);
             if (rc < 0) {
-                perror("我不信\n");
+                perror("");
                 exit(EXIT_FAILURE);
             }
         }
@@ -122,11 +122,11 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         memcpy(buf + 1, info_hash, 20);
         sprintf(buf + 21, "%8d", (int)st.st_size);
         if (ss < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         send(ss, buf, 1 + 20 + 8, 0);
@@ -139,7 +139,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
             }
             rc = send(ss, buf, 2048, 0);
             if (rc < 0) {
-                perror("我不信\n");
+                perror("");
                 exit(EXIT_FAILURE);
             }
         }
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
                     exit(EXIT_SUCCESS);
                 }
                 else if (p < 0) {
-                    perror("我不信\n");
+                    perror("");
                     exit(EXIT_FAILURE);
                 }
             }
@@ -197,7 +197,7 @@ int main(int argc, char **argv)
         write(serverfd, &req, sizeof(struct server_request));
         int fd = open(argv[2], O_RDONLY);
         if (fd < 0) {
-            perror("我不信\n");
+            perror("");
             exit(EXIT_FAILURE);
         }
         while (1) {
