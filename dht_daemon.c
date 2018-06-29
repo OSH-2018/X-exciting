@@ -302,8 +302,7 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
 }
 
 
-void
-handle_request(struct server_request *req)
+void handle_request(struct server_request *req)
 {
     char filename[MAX_CLIENT_FIFO_NAME];
     int fd;

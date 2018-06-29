@@ -89,7 +89,44 @@ download(char **path,int block_num)
 upload(char *filename,char *path,char *localblocks_path)
 ```
 
-**将原文件名放入filename，将原文件所在目录地址放入path（注意：path需以“\”结尾），本地编码块的地址放入localblocks_path（同样localblocks_path需以“\”结尾）**
+**将原文件名放入filename，将原文件所在目录地址放入path（注意：path需以“/”结尾），本地编码块的地址放入localblocks_path（同样localblocks_path需以“/”结尾）**
 
+### 七、运行流程
 
+**上传之前——编码：**
 
+**1、通过upload接口获得需要分块冗余的原文件**
+
+**2、调用split函数，检测文件大小，按照文件分块中陈述的规则进行分块**
+
+**3、此时分得的块都是数据块，调用lrc_init_n,lrc_buf_init函数初始化lrc模块**
+
+**4、将分得数据块写入buf中，调用lrc_encode函数生成编码块(4个local编码块+每4个数据块1个global编码块)**
+
+**5、所有的数据块和编码块都会调用md5_file函数生成16位的md5校验值**
+
+**6、调用lrc_destroy,lrc_buf_destroy函数释放申请的内存空间，释放资源**
+
+**下载之后——译码：**
+
+**1、通过download接口获得需要文件块**
+
+**2、调用check函数，通过检验文件生成的md5值与文件名中的md5值来比较，校验文件是否损坏。同时从文件名中获取原文件的一些基本信息，以便恢复原文件**
+
+**3、调用lrc_init_n,lrc_buf_init函数初始化lrc模块**
+
+**4、调用lrc_get_source函数检测恢复文件需要的文件块以及检验是否能够恢复文件**
+
+**5、将lrc_get_source函数指定的文件块写入buf中，调用lrc_decode恢复数据块**
+
+**6、调用combine函数将数据块合成为原文件**
+
+**7、调用lrc_destroy,lrc_buf_destroy函数释放申请的内存空间，释放资源**
+
+### 八、亮点
+
+**1、增加本地块**
+
+**增加一些本地块虽然会多占用少部分约10%左右的空间，但是会将I/O的消耗降低至没有本地块时的10~50%。**
+
+**2、集成GF-complete（伽罗瓦运算库）采用多种矩阵(如柯西矩阵、范德蒙德矩阵)计算编码块，同时优化算法提升计算的速度，尽量降低erasure code的延迟。**
