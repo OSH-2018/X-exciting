@@ -385,6 +385,9 @@ print_hex(FILE *f, const unsigned char *buf, int buflen)
 static int
 is_martian(const struct sockaddr *sa)
 {
+    #ifdef DEBUG
+    return 0;
+    #else
     switch(sa->sa_family) {
     case AF_INET: {
         struct sockaddr_in *sin = (struct sockaddr_in*)sa;
@@ -408,6 +411,7 @@ is_martian(const struct sockaddr *sa)
     default:
         return 0;
     }
+    #endif
 }
 
 /* Forget about the ``XOR-metric''.  An id is just a path from the
@@ -866,6 +870,7 @@ new_node(const unsigned char *id, const struct sockaddr *sa, int salen,
     if(id_cmp(id, myid) == 0)
         return NULL;
 
+
     if(is_martian(sa) || node_blacklisted(sa, salen))
         return NULL;
 
@@ -1031,7 +1036,7 @@ find_search(unsigned short tid, int af)
 {
     struct search *sr = searches;
     while(sr) {
-        if(sr->tid == tid && sr->af == af)
+        if((sr->tid == tid) && (sr->af == af))
             return sr;
         sr = sr->next;
     }
@@ -1159,10 +1164,17 @@ search_send_get_peers(struct search *sr, struct search_node *n)
        n->request_time >= now.tv_sec - DHT_SEARCH_RETRANSMIT)
         return 0;
 
-    debugf("Sending get_peers.\n");
-    make_tid(tid, "gp", sr->tid);
-    send_get_peers((struct sockaddr*)&n->ss, n->sslen, tid, 4, sr->id, -1,
-                   n->reply_time >= now.tv_sec - DHT_SEARCH_RETRANSMIT);
+    if (sr->port) {
+        debugf("Sending get_peers.\n");
+        make_tid(tid, "gp", sr->tid);
+        send_get_peers((struct sockaddr*)&n->ss, n->sslen, tid, 4, sr->id, WANT4|WANT6,
+                    n->reply_time >= now.tv_sec - DHT_SEARCH_RETRANSMIT);
+    }
+    else {
+        debugf("Sending find_node.\n");
+        make_tid(tid, "fn", sr->tid);
+        send_find_node((struct sockaddr *)&n->ss, n->sslen, tid, 4, sr->id, WANT4 | WANT6, n->reply_time >= now.tv_sec - DHT_SEARCH_RETRANSMIT);
+    }
     n->pinged++;
     n->request_time = now.tv_sec;
     /* If the node happens to be in our main routing table, mark it
@@ -1255,6 +1267,7 @@ search_step(struct search *sr, dht_callback_t *callback, void *closure)
     j = 0;
     for(i = 0; i < sr->numnodes; i++) {
         j += search_send_get_peers(sr, &sr->nodes[i]);
+        
         if(j >= DHT_INFLIGHT_QUERIES)
             break;
     }
@@ -1988,8 +2001,10 @@ dht_periodic(const void *buf, size_t buflen,
         struct parsed_message m;
         unsigned short ttid;
 
+        #ifndef DEBUG
         if(is_martian(from))
             goto dontread;
+        #endif
 
         if(node_blacklisted(from, fromlen)) {
             debugf("Received packet from blacklisted node.\n");
@@ -2048,6 +2063,9 @@ dht_periodic(const void *buf, size_t buflen,
                     gp = 1;
                     sr = find_search(ttid, from->sa_family);
                 }
+                else if (tid_match(m.tid, "fn", &ttid)) {
+                    sr = find_search(ttid, from->sa_family);
+                }
                 debugf("Nodes found (%d+%d)%s!\n",
                        m.nodes_len/26, m.nodes6_len/38,
                        gp ? " for get_peers" : "");
@@ -2059,8 +2077,10 @@ dht_periodic(const void *buf, size_t buflen,
                     new_node(m.id, from, fromlen, 1);
                 } else {
                     int i;
+                    //printf("lll %d %d\n", sr == NULL, m.nodes_len);
                     new_node(m.id, from, fromlen, 2);
                     for(i = 0; i < m.nodes_len / 26; i++) {
+                        //printf("lll %d %d\n", sr == NULL, m.nodes_len);
                         unsigned char *ni = m.nodes + i * 26;
                         struct sockaddr_in sin;
                         if(id_cmp(ni, myid) == 0)
@@ -2070,12 +2090,17 @@ dht_periodic(const void *buf, size_t buflen,
                         memcpy(&sin.sin_addr, ni + 20, 4);
                         memcpy(&sin.sin_port, ni + 24, 2);
                         new_node(ni, (struct sockaddr*)&sin, sizeof(sin), 0);
-                        if(sr && sr->af == AF_INET) {
+                        if(sr && (sr->af == AF_INET)) {
                             insert_search_node(ni,
                                                (struct sockaddr*)&sin,
                                                sizeof(sin),
                                                sr, 0, NULL, 0);
+                            //printf("i am\n");
+                            if (callback)
+                                (*callback)(closure, DHT_EVENT_VALUES, sr->id,
+                                    ni + 20, 6);
                         }
+                        
                     }
                     for(i = 0; i < m.nodes6_len / 38; i++) {
                         unsigned char *ni = m.nodes6 + i * 38;
@@ -2092,6 +2117,10 @@ dht_periodic(const void *buf, size_t buflen,
                                                (struct sockaddr*)&sin6,
                                                sizeof(sin6),
                                                sr, 0, NULL, 0);
+                        
+                            if (callback)
+                                (*callback)(closure, DHT_EVENT_VALUES6, sr->id,
+                                    ni + 20, 18);
                         }
                     }
                     if(sr)
@@ -2155,7 +2184,7 @@ dht_periodic(const void *buf, size_t buflen,
             new_node(m.id, from, fromlen, 1);
             debugf("Sending closest nodes (%d).\n", m.want);
             send_closest_nodes(from, fromlen,
-                               m.tid, m.tid_len, m.target, m.want,
+                               m.tid, m.tid_len, m.target, -1,
                                0, NULL, NULL, 0);
             break;
         case GET_PEERS:
@@ -2175,13 +2204,13 @@ dht_periodic(const void *buf, size_t buflen,
                             from->sa_family == AF_INET6 ? " IPv6" : "");
                      send_closest_nodes(from, fromlen,
                                         m.tid, m.tid_len,
-                                        m.info_hash, m.want,
+                                        m.info_hash, -1,
                                         from->sa_family, st,
                                         token, TOKEN_SIZE);
                 } else {
                     debugf("Sending nodes for get_peers.\n");
                     send_closest_nodes(from, fromlen,
-                                       m.tid, m.tid_len, m.info_hash, m.want,
+                                       m.tid, m.tid_len, m.info_hash, -1,
                                        0, NULL, token, TOKEN_SIZE);
                 }
             }

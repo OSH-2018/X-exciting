@@ -78,7 +78,7 @@ static struct sockaddr myip;
 
 static volatile sig_atomic_t exiting = 0;
 
-static int searching = 0, announce_peer = 0, upload = 0;
+static int searching = 0, announce_peer = 0, uploading = 0;
 
 
 void tcp_recv_store(int fd)
@@ -342,7 +342,7 @@ handle_request(struct server_request *req)
         searching = 1;
         break;
     case DHT_UPLOAD:
-        upload = 1;
+        uploading = 1;
         break;
     default:
         syslog(LOG_ERR, "unkown request");
@@ -673,6 +673,7 @@ int main(int argc, char **argv)
             }
             num_bootstrap_nodes++;
         }
+        fclose(file);
     }
 
     /* If you set dht_debug to a stream, every action taken by the DHT will
@@ -697,7 +698,7 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "start");
 
     // 打开节点记录
-    nodes_file = fopen(KNOWN_NODE_FILE, "w");
+    nodes_file = fopen(KNOWN_NODE_FILE, "w+");
     if (nodes_file == NULL) {
         syslog(LOG_ERR, "open(node file): %s", strerror(errno));
     }
@@ -1165,21 +1166,25 @@ int main(int argc, char **argv)
 
         if (announce_peer) {
             if(s >= 0)
-                dht_search(req.info_hash, 1, AF_INET, callback, NULL);
+                dht_search(req.info_hash, htons(tcp_port), AF_INET, callback, NULL);
             if(s6 >= 0)
-                dht_search(req.info_hash, 1, AF_INET6, callback, NULL);
+                dht_search(req.info_hash, htons(tcp_port), AF_INET6, callback, NULL);
             announce_peer = 0;
         }
 
-        /* This is how you trigger a search for a torrent hash.  If port
-           (the second argument) is non-zero, it also performs an announce.
-           Since peers expire announced data after 30 minutes, it is a good
-           idea to reannounce every 28 minutes or so. */
-        if(searching) {
+        if (uploading) {
             if(s >= 0)
                 dht_search(req.info_hash, 0, AF_INET, callback, NULL);
             if(s6 >= 0)
                 dht_search(req.info_hash, 0, AF_INET6, callback, NULL);
+            uploading = 0;
+        }
+
+        if(searching) {
+            if(s >= 0)
+                dht_search(req.info_hash, htons(tcp_port), AF_INET, callback, NULL);
+            if(s6 >= 0)
+                dht_search(req.info_hash, htons(tcp_port), AF_INET6, callback, NULL);
             searching = 0;
         }
 
