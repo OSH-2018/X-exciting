@@ -9,7 +9,7 @@ int download(char **path,int block_num){    //path需包含localblocks
     int64_t *blockLen;
     char **sequential_path;
     char *buff;
-    /* ======================================================================================*/
+    /* ========================================================================================*/
     int i,j,k,t;
     int datablocknum_int=0;
     char *datablocknum_char;
