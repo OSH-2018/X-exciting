@@ -89,7 +89,7 @@ download(char **path,int block_num)
 upload(char *filename,char *path,char *localblocks_path)
 ```
 
-**将原文件名放入filename，将原文件所在目录地址放入path（注意：path需以“\”结尾），本地编码块的地址放入localblocks_path（同样localblocks_path需以“\”结尾）**
+**将原文件名放入filename，将原文件所在目录地址放入path（注意：path需以“/”结尾），本地编码块的地址放入localblocks_path（同样localblocks_path需以“/”结尾）**
 
 
 
