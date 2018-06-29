@@ -151,7 +151,7 @@ int upload(char *filename, char *path, char *localblocks_path){
             perror("Block generating error");
             exit(-1);
         }
-        if(fwrite(buf->code[i],*blockLen,1,temp) == 0){          //writing the content of orignal file to a block
+        if(fwrite(buf->code[i],*blockLen,1,temp) == 0){          //write the content of orignal file to a block
            printf("File writing error\n");
             exit(-1);
         }

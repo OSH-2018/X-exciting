@@ -1,4 +1,4 @@
-int combine_blocks(char **data, int datablocknum, char *filename, int blocklen,int last_blocklen_int)                  //此处path必须按照数据块序号排列
+int combine_blocks(char **data, int datablocknum, char *filename, int blocklen,int last_blocklen_int)                  //此处path须按照数据块序号排列
 {
     FILE *fdest = fopen(filename, "wb"); //合并生成的文件
     char *buf;
