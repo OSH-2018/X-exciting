@@ -17,7 +17,7 @@
 #include <openssl/md5.h>
 
 #include "dht_daemon.h"
-#include "dht/dht.h"
+#include "dht.h"
 
 #define MAX_BOOTSTRAP_NODES 20
 #define MAX_REQUEST 20
@@ -65,7 +65,7 @@ struct request_storage {
 
 #define MAX_FILE_STORAGE 256
 static int file_storage_num = 0;
-static char path_to_store[] = "./";
+static char path_to_store[] = "";
 
 static struct request_storage *requests = NULL;
 static int request_num = 0;
@@ -681,6 +681,7 @@ int main(int argc, char **argv)
         dht_debug = stdout;
 */
     #ifdef DEBUG
+    umask(0);
     dht_debug = stdout;
     //dht_debug = fopen("debug", "w");
     // 下面变成daemon
@@ -983,7 +984,7 @@ int main(int argc, char **argv)
         if (rc > 0) {
             fromlen = sizeof(from);
             for (i = 0; i <= maxfd; i++) {
-                if (!FD_ISSET(i, &readfds))
+                if (!FD_ISSET(i, &reads) && !FD_ISSET(i, &writes))
                     continue;
                 if (i == s) {
                     dht_rc = recvfrom(s, buf, sizeof(buf) - 1, 0,

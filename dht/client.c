@@ -97,6 +97,11 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
             perror("");
             exit(EXIT_FAILURE);
         }
+        struct sockaddr_in *ad = (struct sockaddr_in *)addr;
+        if (ad->sin_port == htons(7777))
+            ad->sin_port = htons(8888);
+        else
+            ad->sin_port = htons(8887);
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
             perror("");
             exit(EXIT_FAILURE);
@@ -163,14 +168,14 @@ int main(int argc, char **argv)
         memcpy(req.info_hash, info_hash, 20);
         sprintf(fifo_name, CLIENT_FIFO_TEMPLATE, req.id);
         mkfifo(fifo_name, S_IRUSR | S_IWUSR | S_IWGRP);
-        clientfd = open(fifo_name, O_RDONLY);
-             
+        write(serverfd, &req, sizeof(struct server_request));
+        clientfd = open(fifo_name, O_RDONLY);   
         if(clientfd < 0){
                  perror("");
                  exit(EXIT_FAILURE);
         }
                  
-        write(serverfd, &req, sizeof(struct server_request));
+        
         int i = 0;
         while (1) {
             read(clientfd, &ans, sizeof(struct server_answer));
@@ -199,8 +204,8 @@ int main(int argc, char **argv)
         memcpy(req.info_hash, info_hash, 20);
         sprintf(fifo_name, CLIENT_FIFO_TEMPLATE, req.id);
         mkfifo(fifo_name, S_IRUSR | S_IWUSR | S_IWGRP);
-        clientfd = open(fifo_name, O_RDONLY);
         write(serverfd, &req, sizeof(struct server_request));
+        clientfd = open(fifo_name, O_RDONLY);
         int fd = open(argv[2], O_RDONLY);
         if (fd < 0) {
             perror("");

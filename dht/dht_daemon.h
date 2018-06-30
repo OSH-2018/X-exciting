@@ -33,8 +33,8 @@ struct server_answer {
 #define DHT_NODE 4
 
 /* port */
-#define TCP_PORT 8886
-#define UDP_PORT 7776
+#define TCP_PORT 8888
+#define UDP_PORT 7777
 
 #ifdef __cplusplus
 }

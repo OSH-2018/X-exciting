@@ -2077,10 +2077,8 @@ dht_periodic(const void *buf, size_t buflen,
                     new_node(m.id, from, fromlen, 1);
                 } else {
                     int i;
-                    //printf("lll %d %d\n", sr == NULL, m.nodes_len);
                     new_node(m.id, from, fromlen, 2);
                     for(i = 0; i < m.nodes_len / 26; i++) {
-                        //printf("lll %d %d\n", sr == NULL, m.nodes_len);
                         unsigned char *ni = m.nodes + i * 26;
                         struct sockaddr_in sin;
                         if(id_cmp(ni, myid) == 0)
@@ -2095,7 +2093,7 @@ dht_periodic(const void *buf, size_t buflen,
                                                (struct sockaddr*)&sin,
                                                sizeof(sin),
                                                sr, 0, NULL, 0);
-                            //printf("i am\n");
+                            printf("i am\n");
                             if (callback)
                                 (*callback)(closure, DHT_EVENT_VALUES, sr->id,
                                     ni + 20, 6);
