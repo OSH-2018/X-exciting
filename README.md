@@ -20,7 +20,7 @@
 
 ### 项目分工
 
-- DHT网络
+- [DHT网络](https://github.com/OSH-2018/X-exciting/blob/master/dht/dht.md)
   - 网络搭建：黄奕桐
   - 网络路由：张圣明
 
