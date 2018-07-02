@@ -88,3 +88,6 @@
   - DHT部分代码已经全部完成，但仍在debug中...
   - 准备结题报告
 
+### 项目文档
+  - [可行性报告](https://github.com/OSH-2018/X-exciting/blob/master/new/可行性报告.md)
+  - [结题汇报ppt](https://github.com/OSH-2018/X-exciting/blob/master/new/结题报告.pptx)
