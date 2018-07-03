@@ -40,6 +40,7 @@ struct tcp_recv {
     int filefd;
     int filelen;
     char filename[MAX_FILENAME];
+    unsigned char info_hash[20];
     struct tcp_recv *next;
 };
 
@@ -89,6 +90,7 @@ void tcp_recv_store(int fd)
     temp->type = INIT;
     temp->filefd = -1;
     temp->next = recv_storage;
+    recv_storage = temp;
 }
 
 struct tcp_recv *get_tcp_recv(int fd)
@@ -107,7 +109,7 @@ int in_tcp_recv(int fd)
     return (get_tcp_recv(fd) != NULL);
 }
 
-int remove_tcp_recv(int fd)
+int remove_tcp_recv(int fd, int flag)
 {
     struct tcp_recv *temp, *pre;
     temp = pre = recv_storage;
@@ -120,7 +122,8 @@ int remove_tcp_recv(int fd)
     if (temp == NULL) {
         return -1;
     }
-    close(temp->fd);
+    if (flag)
+        close(temp->fd);
     if (temp->filefd >= 0)
         close(temp->filefd);
     if (temp == recv_storage) {
@@ -201,14 +204,18 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
                 if (temp->buf[0] == 'u') {
                     if (file_storage_num >= MAX_FILE_STORAGE) {
                         FD_CLR(temp->fd, readfds);
+                        struct tcp_recv *t = temp;
                         temp = temp->next;
-                        remove_tcp_recv(temp->fd);
+                        remove_tcp_recv(t->fd, 1);
                         continue;
                     }
                     if (temp->buflen < UPLOAD_MES_LEN)
                         break;
-                    for (int i = 0; i < 20; i++)
-                        sprintf(temp->filename + i * 2, "%02x", temp->buf[i + 1]);
+                    memcpy(temp->info_hash, temp->buf + 1, 20);
+                    for (int i = 0; i < 20; i++) {
+                        sprintf(temp->filename + i * 2, "%02x", (unsigned char)temp->buf[i + 1]);
+                    }
+                    printf("\n");
                     temp->filename[40] = '\0';
                     sscanf(temp->buf + 21, "%8d", &temp->filelen);
                     char name[MAX_FILENAME];
@@ -216,8 +223,9 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
                     strcpy(name + strlen(path_to_store), temp->filename);
                     if (access(name, F_OK) == 0) {
                         FD_CLR(temp->fd, readfds);
+                        struct tcp_recv *t = temp;
                         temp = temp->next;
-                        remove_tcp_recv(temp->fd);
+                        remove_tcp_recv(t->fd, 1);
                         continue;
                     }
                     temp->filefd = open(name, O_WRONLY | O_CREAT);
@@ -240,12 +248,14 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
                     if (temp->buflen != DOWNLOAD_MES_LEN) {
                         syslog(LOG_INFO, "receive unkown download mes");
                         FD_CLR(temp->fd, readfds);
+                        struct tcp_recv *t = temp;
                         temp = temp->next;
-                        remove_tcp_recv(temp->fd);
+                        remove_tcp_recv(t->fd, 1);
                         continue;
                     }
+                    memcpy(temp->info_hash, temp->buf + 1, 20);
                     for (int i = 0; i < 20; i++)
-                        sprintf(temp->filename + i * 2, "%02x", temp->buf[i + 1]);
+                        sprintf(temp->filename + i * 2, "%02x", (unsigned char)temp->buf[i + 1]);
                     temp->filename[40] = '\0';
                     char name[MAX_FILENAME];
                     strcpy(name, path_to_store);
@@ -253,22 +263,25 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
                     if (access(name, F_OK) != 0) {
                         syslog(LOG_INFO, "receive unkown download file");
                         FD_CLR(temp->fd, readfds);
+                        struct tcp_recv *t = temp;
                         temp = temp->next;
-                        remove_tcp_recv(temp->fd);
+                        remove_tcp_recv(t->fd, 1);
                         continue;
                     }
                     tcp_send_store(temp->fd, name);
                     FD_SET(temp->fd, writefds);
                     FD_CLR(temp->fd, readfds);
+                    struct tcp_recv *t = temp;
                     temp = temp->next;
-                    remove_tcp_recv(temp->fd);
+                    remove_tcp_recv(t->fd, 0);
                     continue;
                 }
                 else {
                     syslog(LOG_INFO, "receive unkown mes");
                     FD_CLR(temp->fd, readfds);
+                    struct tcp_recv *t = temp;
                     temp = temp->next;
-                    remove_tcp_recv(temp->fd);
+                    remove_tcp_recv(t->fd, 1);
                     continue;
                 }
                 break;
@@ -283,13 +296,12 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
                 temp->filelen -= rc;
                 temp->buflen = 0;
                 if (temp->filelen == 0) {
-                    unsigned char info_hash[20];
-                    for (int i = 0; i < 20; i++)
-                        sscanf(temp->filename + i * 2, "%02x", (unsigned int *)&info_hash[i]);
-                    dht_storage_store(info_hash, &myip, myport, 1);
+                    dht_storage_store(temp->info_hash, &myip, myport, 1);
                     FD_CLR(temp->fd, readfds);
+                    struct tcp_recv *t = temp;
                     temp = temp->next;
-                    remove_tcp_recv(temp->fd);
+                    remove_tcp_recv(t->fd, 1);
+                    continue;
                 }
                 break;
             default:
@@ -310,6 +322,7 @@ void handle_request(struct server_request *req)
     struct request_storage *r;
     snprintf(filename, MAX_CLIENT_FIFO_NAME, CLIENT_FIFO_TEMPLATE, req->id);
     fd = open(filename, O_WRONLY);
+
     if (fd == -1) {
         syslog(LOG_WARNING, "client %d don't open a fifo", req->id);
         return;
@@ -515,6 +528,8 @@ int main(int argc, char **argv)
     struct server_request req;
 
     FILE *nodes_file;
+
+    signal(SIGPIPE, SIG_IGN);
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
@@ -1010,7 +1025,7 @@ int main(int argc, char **argv)
                         FD_SET(new_fd, &readfds);
                         if (new_fd > maxfd)
                             maxfd = new_fd;
-                        tcp_recv_store(i);
+                        tcp_recv_store(new_fd);
                     } while (new_fd >= 0);
                 }
                 else if (i == tcp_s6) {
@@ -1027,7 +1042,7 @@ int main(int argc, char **argv)
                         FD_SET(new_fd, &readfds);
                         if (new_fd > maxfd)
                             maxfd = new_fd;
-                        tcp_recv_store(i);
+                        tcp_recv_store(new_fd);
                     } while (new_fd >= 0);
                 }
                 else {
@@ -1040,18 +1055,17 @@ int main(int argc, char **argv)
                                 if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
                                     syslog(LOG_ERR, "recv : %s", strerror(errno));
                                     FD_CLR(i, &readfds);
-                                    remove_tcp_recv(i);
+                                    remove_tcp_recv(i, 1);
                                 }
-                                else if (errno == EINTR)
-                                    continue;
                                 break;
                             }
                             if (rc == 0) {
                                 FD_CLR(i, &readfds);
-                                remove_tcp_recv(i);
+                                remove_tcp_recv(i, 1);
                                 break;
                             }
                             recv_client->buflen += rc;
+                            break;
                             if (recv_client->buflen == TCP_BUF_LEN) 
                                 break;
                         } while (1);
@@ -1106,21 +1120,22 @@ int main(int argc, char **argv)
                                 remove_tcp_send(i);
                                 break;
                             }
-                            if (rc == 0) {
+
+                            if (send_client->buflen == 0) {
                                 FD_CLR(i, &writefds);
                                 remove_tcp_send(i);
                                 break;
                             }
                             
                             rc = send(send_client->fd, send_client->buf, send_client->buflen, MSG_NOSIGNAL);
+                            
+                            
                             if (rc < 0) {
                                 if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
                                     syslog(LOG_ERR, "recv : %s", strerror(errno));
                                     FD_CLR(i, &writefds);
                                     remove_tcp_send(i);
                                 }
-                                else if (errno == EINTR)
-                                    continue;
                                 break;    
                             }
                             send_client->buflen -= rc;

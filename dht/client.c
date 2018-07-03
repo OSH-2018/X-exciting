@@ -17,7 +17,7 @@ void hash(void *hash_return, int hash_size,
     MD5_Update(&ctx, v, len);
     MD5_Final(digest, &ctx);
     if(hash_size > 16)
-        memset((char*)hash_return + 16, 0, hash_size - 16);
+        memset((unsigned char*)hash_return + 16, 0, hash_size - 16);
     memcpy(hash_return, digest, hash_size > 16 ? 16 : hash_size);
 }
 
@@ -35,7 +35,7 @@ void handle(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
     if (addr_len == sizeof(struct sockaddr_in)) {
         int ss = socket(AF_INET, SOCK_STREAM, 0);
         buf[0] = 'd';
-        sprintf(buf + 1, "%s", info_hash);
+        memcpy(buf + 1, info_hash, 20);
         if (ss < 0) {
             perror("");
             exit(EXIT_FAILURE);
@@ -97,16 +97,20 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
             perror("");
             exit(EXIT_FAILURE);
         }
-        struct sockaddr_in *ad = (struct sockaddr_in *)addr;
-        if (ad->sin_port == htons(7777))
-            ad->sin_port = htons(8888);
+        struct sockaddr_in *sa = (struct sockaddr_in *)addr;
+        if (sa->sin_port == htons(7777))
+            sa->sin_port = htons(8888);
         else
-            ad->sin_port = htons(8887);
+            sa->sin_port = htons(8887);
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
+            perror("102");
+            exit(EXIT_FAILURE);
+        }
+        rc = send(ss, buf, 1 + 20 + 8, 0);
+        if (rc < 0) {
             perror("");
             exit(EXIT_FAILURE);
         }
-        send(ss, buf, 1 + 20 + 8, 0);
         while (1) {
             int rc = read(fd, buf, 2048);
             if (rc == 0) {
@@ -114,7 +118,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
                 close(ss);
                 exit(EXIT_SUCCESS);
             }
-            rc = send(ss, buf, 2048, 0);
+            rc = send(ss, buf, rc, 0);
             if (rc < 0) {
                 perror("");
                 exit(EXIT_FAILURE);

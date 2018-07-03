@@ -324,8 +324,7 @@ static unsigned char oldsecret[8];
 static struct bucket *buckets = NULL;
 static struct bucket *buckets6 = NULL;
 static struct storage *storage;
-static int numstorage;
-static int num_own_storage;    // the num of hashes we own
+static int numstorage = 0;
 
 static struct search *searches = NULL;
 static int numsearches;
@@ -1352,22 +1351,22 @@ dht_search(const unsigned char *id, int port, int af,
     if(callback) {
         st = find_storage(id);
         if(st) {
-            unsigned short swapped;
+            //unsigned short swapped;
             unsigned char buf[18];
             int i;
 
             debugf("Found local data (%d peers).\n", st->numpeers);
 
             for(i = 0; i < st->numpeers; i++) {
-                swapped = htons(st->peers[i].port);
+                //swapped = htons(st->peers[i].port);
                 if(st->peers[i].len == 4) {
                     memcpy(buf, st->peers[i].ip, 4);
-                    memcpy(buf + 4, &swapped, 2);
+                    memcpy(buf + 4, &st->peers[i].port, 2);
                     (*callback)(closure, DHT_EVENT_VALUES, id,
                                 (void*)buf, 6);
                 } else if(st->peers[i].len == 16) {
                     memcpy(buf, st->peers[i].ip, 16);
-                    memcpy(buf + 16, &swapped, 2);
+                    memcpy(buf + 16, &st->peers[i].port, 2);
                     (*callback)(closure, DHT_EVENT_VALUES6, id,
                                 (void*)buf, 18);
                 }
@@ -1485,19 +1484,14 @@ dht_storage_store(const unsigned char *id,
     }
 
     if(st == NULL) {
-        if (own && num_own_storage >= DHT_MAX_OWN)
-            return -1;
-        else if(!own && numstorage >= DHT_MAX_HASHES)
+        if(numstorage >= DHT_MAX_HASHES)
             return -1;
         st = calloc(1, sizeof(struct storage));
         if(st == NULL) return -1;
         memcpy(st->id, id, 20);
         st->next = storage;
         storage = st;
-        if (own)
-            num_own_storage++;
-        else
-            numstorage++;
+        numstorage++;
     }
 
     for(i = 0; i < st->numpeers; i++) {
@@ -1556,6 +1550,7 @@ expire_storage(void)
         while(i < st->numpeers) {
             /* time == 0 means this peer is owned by us*/
             if (st->peers[i].time == 0) {
+                i++;
                 continue;
             }
             if(st->peers[i].time < now.tv_sec - 32 * 60) {
@@ -2093,7 +2088,6 @@ dht_periodic(const void *buf, size_t buflen,
                                                (struct sockaddr*)&sin,
                                                sizeof(sin),
                                                sr, 0, NULL, 0);
-                            printf("i am\n");
                             if (callback)
                                 (*callback)(closure, DHT_EVENT_VALUES, sr->id,
                                     ni + 20, 6);
@@ -2228,8 +2222,9 @@ dht_periodic(const void *buf, size_t buflen,
                            203, "Announce_peer with wrong token");
                 break;
             }
+            /*
             if(m.implied_port != 0) {
-                /* Do this even if port > 0.  That's what the spec says. */
+                // Do this even if port > 0.  That's what the spec says. 
                 switch(from->sa_family) {
                 case AF_INET:
                     m.port = htons(((struct sockaddr_in*)from)->sin_port);
@@ -2238,7 +2233,7 @@ dht_periodic(const void *buf, size_t buflen,
                     m.port = htons(((struct sockaddr_in6*)from)->sin6_port);
                     break;
                 }
-            }
+            }*/
             if(m.port == 0) {
                 debugf("Announce_peer with forbidden port %d.\n", m.port);
                 send_error(from, fromlen, m.tid, m.tid_len,
@@ -2593,12 +2588,12 @@ send_nodes_peers(const struct sockaddr *sa, int salen,
         rc = snprintf(buf + i, 2048 - i, "6:valuesl"); INC(i, rc, 2048);
         do {
             if(st->peers[j].len == len) {
-                unsigned short swapped;
-                swapped = htons(st->peers[j].port);
+                //unsigned short swapped;
+                //swapped = htons(st->peers[j].port);
                 rc = snprintf(buf + i, 2048 - i, "%d:", len + 2);
                 INC(i, rc, 2048);
                 COPY(buf, i, st->peers[j].ip, len, 2048);
-                COPY(buf, i, &swapped, 2, 2048);
+                COPY(buf, i, &st->peers[j].port, 2, 2048);
                 k++;
             }
             j = (j + 1) % st->numpeers;
