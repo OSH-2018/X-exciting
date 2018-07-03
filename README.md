@@ -89,5 +89,7 @@
   - 准备结题报告
 
 ### 项目文档
+  - [调研报告](https://github.com/OSH-2018/X-exciting/blob/master/new/调研报告/调研报告——校园规模的分布式文件共享系统.md)
   - [可行性报告](https://github.com/OSH-2018/X-exciting/blob/master/new/可行性报告.md)
   - [结题汇报ppt](https://github.com/OSH-2018/X-exciting/blob/master/new/结题报告.pptx)
+  
