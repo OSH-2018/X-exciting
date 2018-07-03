@@ -347,19 +347,19 @@ gcc example.c -o example -llrc
 
 **模块安装完毕后，利用upload接口，编码并分块test.pdf，得到的结果如下图所示(path和localblocks_path均设为同一路径)：**
 
-![image](https://github.com/OSH-2018/X-exciting/tree/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/1.png)
+![image](https://github.com/OSH-2018/X-exciting/blob/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/1.png)
 
 **test.pdf的md5校验值为：**
 
-![image](https://github.com/OSH-2018/X-exciting/tree/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/2.png)
+![image](https://github.com/OSH-2018/X-exciting/blob/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/2.png)
 
 **在文件夹中任意取28块，进行文件恢复：**
 
-![image](https://github.com/OSH-2018/X-exciting/tree/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/3.png)
+![image](https://github.com/OSH-2018/X-exciting/blob/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/3.png)
 
 **校验恢复的文件是否与原文件相同：**
 
-![image](https://github.com/OSH-2018/X-exciting/tree/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/4.png)
+![image](https://github.com/OSH-2018/X-exciting/blob/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/4.png)
 
 **可以看到恢复的文件与原文件相同**
 
