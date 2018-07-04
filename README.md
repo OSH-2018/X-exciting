@@ -20,7 +20,7 @@
 
 ### 项目分工
 
-- [DHT网络](https://github.com/OSH-2018/X-exciting/blob/master/dht/dht.md)
+- [DHT网络](https://github.com/OSH-2018/X-exciting/blob/master/dht/README.md)
   - 网络搭建：黄奕桐
   - 网络路由：张圣明
 
@@ -88,9 +88,18 @@
   - DHT部分代码已经全部完成，但仍在debug中...
   - 准备结题报告
 
+- 7/3/2018
+
+  - DHT调试完毕
+
+- 7/4/2018
+
+  - 上传详细设计报告
+
 ### 项目文档
   - [调研报告](https://github.com/OSH-2018/X-exciting/blob/master/报告/调研报告/调研报告——校园规模的分布式文件共享系统.md)
   - [可行性报告](https://github.com/OSH-2018/X-exciting/blob/master/报告/可行性报告/可行性报告.md)
   - [中期报告](https://github.com/OSH-2018/X-exciting/tree/master/报告/中期报告)
   - [结题汇报ppt](https://github.com/OSH-2018/X-exciting/blob/master/new/结题报告.pptx)
-  
+  - [详细设计报告](https://github.com/OSH-2018/X-exciting/blob/master/%E6%8A%A5%E5%91%8A/%E7%BB%93%E9%A2%98%E6%8A%A5%E5%91%8A%2B%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A/%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1%E6%8A%A5%E5%91%8A.pdf)
+
