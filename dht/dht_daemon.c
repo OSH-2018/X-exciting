@@ -215,7 +215,6 @@ void tcp_periodic(fd_set *readfds, fd_set *writefds)
                     for (int i = 0; i < 20; i++) {
                         sprintf(temp->filename + i * 2, "%02x", (unsigned char)temp->buf[i + 1]);
                     }
-                    printf("\n");
                     temp->filename[40] = '\0';
                     sscanf(temp->buf + 21, "%8d", &temp->filelen);
                     char name[MAX_FILENAME];

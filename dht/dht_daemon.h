@@ -1,3 +1,6 @@
+#ifndef DHT_DAEMON_
+#define DHT_DAEMON_
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -39,3 +42,5 @@ struct server_answer {
 #ifdef __cplusplus
 }
 #endif
+
+#endif // DHT_DAEMON_

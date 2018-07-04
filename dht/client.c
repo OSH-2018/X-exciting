@@ -6,7 +6,11 @@
 #include <sys/types.h>
 #include <openssl/md5.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
+#include <errno.h>
+
+#define MAX_DOWNLOAD 10
 
 void hash(void *hash_return, int hash_size,
          const void *v, int len)
@@ -23,33 +27,48 @@ void hash(void *hash_return, int hash_size,
 
 void handle(struct sockaddr_storage *addr, int addr_len, unsigned char *info_hash, char *filename, int i)
 {
-    char name[strlen(filename) + 4];
+    char name[strlen(filename) + 4 + 1];
     char buf[2048];
+    int rc;
     strcpy(name, filename);
     sprintf(name + strlen(filename), "%d", i);
     int fd = open(name, O_WRONLY | O_CREAT);
     if (fd < 0) {
-        perror("");
-        exit(EXIT_FAILURE);
+        _exit(errno);
     }
     if (addr_len == sizeof(struct sockaddr_in)) {
         int ss = socket(AF_INET, SOCK_STREAM, 0);
+        if (ss < 0) {
+            close(fd);
+            unlink(name);
+            _exit(errno);
+        }
+
         buf[0] = 'd';
         memcpy(buf + 1, info_hash, 20);
-        if (ss < 0) {
-            perror("");
-            exit(EXIT_FAILURE);
-        }
+        
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("");
-            exit(EXIT_FAILURE);
+            close(fd);
+            unlink(name);
+            _exit(errno);
         }
-        send(ss, buf, 21, 0);
+
+        rc = send(ss, buf, 21, 0);
+        if (rc < 0) {
+            close(fd);
+            unlink(name);
+            _exit(errno);
+        }
         while (1) {
-            int rc = recv(ss, buf, 2048, 0);
+            rc = recv(ss, buf, 2048, 0);
             if (rc == 0) {
                 close(fd);
-                exit(EXIT_SUCCESS);
+                _exit(EXIT_SUCCESS);
+            }
+            else if (rc < 0) {
+                close(fd);
+                unlink(name);
+                _exit(errno);
             }
             write(fd, buf, rc);
         }
@@ -59,19 +78,21 @@ void handle(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         buf[0] = 'd';
         sprintf(buf + 1, "%s", info_hash);
         if (ss < 0) {
-            perror("");
-            exit(EXIT_FAILURE);
+            close(fd);
+            unlink(name);
+            _exit(errno);
         }
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("");
-            exit(EXIT_FAILURE);
+            close(fd);
+            unlink(name);
+            _exit(errno);
         }
         send(ss, buf, 21, 0);
         while (1) {
             int rc = recv(ss, buf, 2048, 0);
             if (rc == 0) {
                 close(fd);
-                exit(EXIT_SUCCESS);
+                _exit(EXIT_SUCCESS);
             }
             write(fd, buf, rc);
         }
@@ -85,7 +106,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
     struct stat st;
     rc = fstat(fd, &st);
     if (rc < 0) {
-        perror("");
+        perror(NULL);
         exit(EXIT_FAILURE);
     }
     if (addr_len == sizeof(struct sockaddr_in)) {
@@ -94,7 +115,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         memcpy(buf + 1, info_hash, 20);
         sprintf(buf + 21, "%8d", (int)st.st_size);
         if (ss < 0) {
-            perror("");
+            perror(NULL);
             exit(EXIT_FAILURE);
         }
         struct sockaddr_in *sa = (struct sockaddr_in *)addr;
@@ -103,12 +124,11 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         else
             sa->sin_port = htons(8887);
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("102");
             exit(EXIT_FAILURE);
         }
         rc = send(ss, buf, 1 + 20 + 8, 0);
         if (rc < 0) {
-            perror("");
+            perror(NULL);
             exit(EXIT_FAILURE);
         }
         while (1) {
@@ -120,7 +140,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
             }
             rc = send(ss, buf, rc, 0);
             if (rc < 0) {
-                perror("");
+                perror(NULL);
                 exit(EXIT_FAILURE);
             }
         }
@@ -131,11 +151,11 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
         memcpy(buf + 1, info_hash, 20);
         sprintf(buf + 21, "%8d", (int)st.st_size);
         if (ss < 0) {
-            perror("");
+            perror(NULL);
             exit(EXIT_FAILURE);
         }
         if (connect(ss, (struct sockaddr *)addr, addr_len) < 0) {
-            perror("");
+            perror(NULL);
             exit(EXIT_FAILURE);
         }
         send(ss, buf, 1 + 20 + 8, 0);
@@ -148,7 +168,7 @@ void upload(struct sockaddr_storage *addr, int addr_len, unsigned char *info_has
             }
             rc = send(ss, buf, 2048, 0);
             if (rc < 0) {
-                perror("");
+                perror(NULL);
                 exit(EXIT_FAILURE);
             }
         }
@@ -175,31 +195,35 @@ int main(int argc, char **argv)
         write(serverfd, &req, sizeof(struct server_request));
         clientfd = open(fifo_name, O_RDONLY);   
         if(clientfd < 0){
-                 perror("");
+                 perror(NULL);
                  exit(EXIT_FAILURE);
         }
                  
         
-        int i = 0;
+        int num_p = 0;
         while (1) {
             read(clientfd, &ans, sizeof(struct server_answer));
             if (ans.type == DHT_DONE)
                 break;
             if (ans.type == DHT_NODE) {
-                i++;
                 pid_t p = fork();
                 if (p == 0) {
-                    handle(&ans.addr, ans.addr_len, info_hash, argv[2], i);
-                    exit(EXIT_SUCCESS);
+                    handle(&ans.addr, ans.addr_len, info_hash, argv[2], num_p);
+                    _exit(EXIT_SUCCESS);
                 }
                 else if (p < 0) {
-                    perror("");
+                    perror(NULL);
                     exit(EXIT_FAILURE);
+                }
+                else {
+                    num_p++;
                 }
             }
             else
                 exit(EXIT_FAILURE);
         }
+        close(clientfd);
+        unlink(fifo_name);
     }
     if (strcmp(argv[1], "up") == 0) {
         hash(info_hash, 20, argv[2], strlen(argv[2]));
@@ -212,7 +236,7 @@ int main(int argc, char **argv)
         clientfd = open(fifo_name, O_RDONLY);
         int fd = open(argv[2], O_RDONLY);
         if (fd < 0) {
-            perror("");
+            perror(NULL);
             exit(EXIT_FAILURE);
         }
         while (1) {
@@ -225,5 +249,7 @@ int main(int argc, char **argv)
             else
                 exit(EXIT_FAILURE);
         }
+        close(clientfd);
+        unlink(fifo_name);
     }
 }
